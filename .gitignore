@@ -3,12 +3,16 @@
 docker-compose.override.yml
 /homepage/logs
 /homepage/*.yaml
+/homepage/*.css
+/homepage/*.js
 /sonarr
 !/sonarr/.gitkeep
 /radarr
 !/radarr/.gitkeep
 /prowlarr
 !/prowlarr/.gitkeep
+/lidarr
+!/lidarr/.gitkeep
 /qbittorrent
 !/qbittorrent/.gitkeep
 /pia
@@ -19,6 +23,8 @@ docker-compose.override.yml
 !/letsencrypt/.gitkeep
 /jellyfin
 !/jellyfin/.gitkeep
+/jellyseerr
+!/jellyseerr/.gitkeep
 /adguardhome/certs
 /adguardhome/conf
 !/adguardhome/conf/.gitkeep

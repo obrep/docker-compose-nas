@@ -10,22 +10,23 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
 
 ![Docker-Compose NAS Homepage](https://github.com/AdrienPoupa/docker-compose-nas/assets/15086425/3492a9f6-3779-49a5-b052-4193844f16f0)
 
-## Table of Content
+## Table of Contents
 
 <!-- TOC -->
 * [Docker Compose NAS](#docker-compose-nas)
-  * [Table of Content](#table-of-content)
+  * [Table of Contents](#table-of-contents)
   * [Applications](#applications)
   * [Quick Start](#quick-start)
   * [Environment Variables](#environment-variables)
   * [PIA WireGuard VPN](#pia-wireguard-vpn)
-  * [Sonarr & Radarr](#sonarr--radarr)
+  * [Sonarr, Radarr & Lidarr](#sonarr-radarr--lidarr)
     * [File Structure](#file-structure)
     * [Download Client](#download-client)
   * [Prowlarr](#prowlarr)
   * [qBittorrent](#qbittorrent)
   * [Jellyfin](#jellyfin)
   * [Homepage](#homepage)
+  * [Jellyseerr](#jellyseerr)
   * [Traefik and SSL Certificates](#traefik-and-ssl-certificates)
     * [Accessing from the outside with Tailscale](#accessing-from-the-outside-with-tailscale)
   * [Optional Services](#optional-services)
@@ -36,6 +37,7 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
       * [DHCP](#dhcp)
       * [Expose DNS Server with Tailscale](#expose-dns-server-with-tailscale)
   * [Customization](#customization)
+    * [Optional: Using the VPN for *arr apps](#optional-using-the-vpn-for-arr-apps)
   * [Synology Quirks](#synology-quirks)
     * [Free Ports 80 and 443](#free-ports-80-and-443)
     * [Install Synology WireGuard](#install-synology-wireguard)
@@ -54,13 +56,16 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
 |----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|--------------|
 | [Sonarr](https://sonarr.tv)                                          | PVR for newsgroup and bittorrent users                                                                                                               | [linuxserver/sonarr](https://hub.docker.com/r/linuxserver/sonarr)                        | /sonarr      |
 | [Radarr](https://radarr.video)                                       | Movie collection manager for Usenet and BitTorrent users                                                                                             | [linuxserver/radarr](https://hub.docker.com/r/linuxserver/radarr)                        | /radarr      |
+| [Lidarr](https://lidarr.audio)                                       | Music collection manager for Usenet and BitTorrent users                                                                                             | [linuxserver/lidarr](https://hub.docker.com/r/linuxserver/lidarr)                        | /lidarr      |
 | [Prowlarr](https://github.com/Prowlarr/Prowlarr)                     | Indexer aggregator for Sonarr and Radarr                                                                                                             | [linuxserver/prowlarr:latest](https://hub.docker.com/r/linuxserver/prowlarr)             | /prowlarr    |
 | [PIA WireGuard VPN](https://github.com/thrnz/docker-wireguard-pia)   | Encapsulate qBittorrent traffic in [PIA](https://www.privateinternetaccess.com/) using [WireGuard](https://www.wireguard.com/) with port forwarding. | [thrnz/docker-wireguard-pia](https://hub.docker.com/r/thrnz/docker-wireguard-pia)        |              |
 | [qBittorrent](https://www.qbittorrent.org)                           | Bittorrent client with a complete web UI<br/>Uses VPN network<br/>Using Libtorrent 1.x                                                               | [linuxserver/qbittorrent:libtorrentv1](https://hub.docker.com/r/linuxserver/qbittorrent) | /qbittorrent |
 | [Jellyfin](https://jellyfin.org)                                     | Media server designed to organize, manage, and share digital media files to networked devices                                                        | [linuxserver/jellyfin](https://hub.docker.com/r/linuxserver/jellyfin)                    | /jellyfin    |
-| [Homepage](https://gethomepage.dev)                                  | Application dashboard                                                                                                                                | [benphelps/homepage](https://github.com/benphelps/homepage/pkgs/container/homepage)      | /            |
+| [Jellyseer](https://jellyfin.org)                                    | Manages requests for your media library                                                                                                              | [fallenbagel/jellyseerr](https://hub.docker.com/r/fallenbagel/jellyseerr)                | /jellyseer   |
+| [Homepage](https://gethomepage.dev)                                  | Application dashboard                                                                                                                                | [gethomepage/homepage](https://github.com/gethomepage/homepage/pkgs/container/homepage)  | /            |
 | [Traefik](https://traefik.io)                                        | Reverse proxy                                                                                                                                        | [traefik](https://hub.docker.com/_/traefik)                                              |              |
 | [Watchtower](https://containrrr.dev/watchtower/)                     | Automated Docker images update                                                                                                                       | [containrrr/watchtower](https://hub.docker.com/r/containrrr/watchtower)                  |              |
+| [Autoheal](https://github.com/willfarrell/docker-autoheal/)          | Monitor and restart unhealthy docker containers                                                                                                      | [willfarrell/autoheal](https://hub.docker.com/r/willfarrell/autoheal)                    |              |
 | [SABnzbd](https://sabnzbd.org/)                                      | Optional - Free and easy binary newsreader                                                                                                           | [linuxserver/sabnzbd](https://hub.docker.com/r/linuxserver/sabnzbd)                      | /sabnzbd     |
 | [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)         | Optional - Proxy server to bypass Cloudflare protection in Prowlarr                                                                                  | [flaresolverr/flaresolverr](https://hub.docker.com/r/flaresolverr/flaresolverr)          |              |
 | [AdGuard Home](https://adguard.com/en/adguard-home/overview.html)    | Optional - Network-wide software for blocking ads & tracking                                                                                         | [adguard/adguardhome](https://hub.docker.com/r/adguard/adguardhome)                      |              |
@@ -89,7 +94,7 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `TIMEZONE`                     | TimeZone used by the container.                                                                                                                                                                        | `America/New_York`                               |
 | `DATA_ROOT`                    | Host location of the data files                                                                                                                                                                        | `/mnt/data`                                      |
 | `DOWNLOAD_ROOT`                | Host download location for qBittorrent, should be a subfolder of `DATA_ROOT`                                                                                                                           | `/mnt/data/torrents`                             |
-| `PIA_LOCATION`                 | Servers to use for PIA                                                                                                                                                                                 | `ca` (Montreal, Canada)                          |
+| `PIA_LOCATION`                 | Servers to use for PIA. [see list here](https://serverlist.piaservers.net/vpninfo/servers/v6)                                                                                                          | `ca` (Montreal, Canada)                          |
 | `PIA_USER`                     | PIA username                                                                                                                                                                                           |                                                  |
 | `PIA_PASS`                     | PIA password                                                                                                                                                                                           |                                                  |
 | `PIA_LOCAL_NETWORK`            | PIA local network                                                                                                                                                                                      | `192.168.0.0/16`                                 |
@@ -97,6 +102,8 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `ADGUARD_HOSTNAME`             | Optional - AdGuard Home hostname used, if enabled                                                                                                                                                      |                                                  |
 | `ADGUARD_USERNAME`             | Optional - AdGuard Home username to show details in the homepage, if enabled                                                                                                                           |                                                  |
 | `ADGUARD_PASSWORD`             | Optional - AdGuard Home password to show details in the homepage, if enabled                                                                                                                           |                                                  |
+| `QBITTORRENT_USERNAME`         | qBittorrent username to access the web UI                                                                                                                                                              | `admin`                                          |
+| `QBITTORRENT_PASSWORD`         | qBittorrent password to access the web UI                                                                                                                                                              | `adminadmin`                                     |
 | `DNS_CHALLENGE`                | Enable/Disable DNS01 challenge, set to `false` to disable.                                                                                                                                             | `true`                                           |
 | `DNS_CHALLENGE_PROVIDER`       | Provider for DNS01 challenge, [see list here](https://doc.traefik.io/traefik/https/acme/#providers).                                                                                                   | `cloudflare`                                     |
 | `LETS_ENCRYPT_CA_SERVER`       | Let's Encrypt CA Server used to generate certificates, set to production by default.<br/>Set to `https://acme-staging-v02.api.letsencrypt.org/directory` to test your changes with the staging server. | `https://acme-v02.api.letsencrypt.org/directory` |
@@ -106,8 +113,10 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `CLOUDFLARE_ZONE_API_TOKEN`    | API token with `Zone:Read` permission                                                                                                                                                                  |                                                  |
 | `SONARR_API_KEY`               | Sonarr API key to show information in the homepage                                                                                                                                                     |                                                  |
 | `RADARR_API_KEY`               | Radarr API key to show information in the homepage                                                                                                                                                     |                                                  |
+| `LIDARR_API_KEY`               | Lidarr API key to show information in the homepage                                                                                                                                                     |                                                  |
 | `PROWLARR_API_KEY`             | Prowlarr API key to show information in the homepage                                                                                                                                                   |                                                  |
 | `JELLYFIN_API_KEY`             | Jellyfin API key to show information in the homepage                                                                                                                                                   |                                                  |
+| `JELLYSEERR_API_KEY`           | Jellyseer API key to show information in the homepage                                                                                                                                                  |                                                  |
 | `HOMEPAGE_VAR_TITLE`           | Title of the homepage                                                                                                                                                                                  | `Docker-Compose NAS`                             |
 | `HOMEPAGE_VAR_SEARCH_PROVIDER` | Homepage search provider, [see list here](https://gethomepage.dev/en/widgets/search/)                                                                                                                  | `google`                                         |
 | `HOMEPAGE_VAR_HEADER_STYLE`    | Homepage header style, [see list here](https://gethomepage.dev/en/configs/settings/#header-style)                                                                                                      | `boxed`                                          |
@@ -133,11 +142,11 @@ The location of the server it will connect to is set by `LOC=ca`, defaulting to 
 You need to fill the credentials in the `PIA_*` environment variable, 
 otherwise the VPN container will exit and qBittorrent will not start.
 
-## Sonarr & Radarr
+## Sonarr, Radarr & Lidarr
 
 ### File Structure
 
-Sonarr and Radarr must be configured to support hardlinks, to allow instant moves and prevent using twice the storage
+Sonarr, Radarr, and Lidarr must be configured to support hardlinks, to allow instant moves and prevent using twice the storage
 (Bittorrent downloads and final file). The trick is to use a single volume shared by the Bittorrent client and the *arrs.
 Subfolders are used to separate the TV shows from the movies.
 
@@ -153,11 +162,13 @@ data
 └── media = shared folder for Sonarr and Radarr files
    ├── movies = Radarr
    └── tv = Sonarr
+   └── music = Lidarr
 ```
 
 Go to Settings > Management.
 In Sonarr, set the Root folder to `/data/media/tv`.
-In Radar, set the Root folder to `/data/media/movies`.
+In Radarr, set the Root folder to `/data/media/movies`.
+In Lidarr, set the Root folder to `/data/media/music`.
 
 ### Download Client
 
@@ -169,7 +180,7 @@ place in the VPN container, the hostname for qBittorrent is the hostname of the 
 The indexers are configured through Prowlarr. They synchronize automatically to Radarr and Sonarr.
 
 Radarr and Sonarr may then be added via Settings > Apps. The Prowlarr server is `http://prowlarr:9696/prowlarr`, the Radarr server
-is `http://radarr:7878/radarr` and Sonarr `http://sonarr:8989/sonarr`:
+is `http://radarr:7878/radarr` Sonarr `http://sonarr:8989/sonarr`, and Lidarr `http://lidarr:8686/lidarr`:
 
 Their API keys can be found in Settings > Security > API Key.
 
@@ -207,6 +218,21 @@ If you to customize further, you can modify the files in `/homepage/*.yaml` acco
 Due to how the Docker socket is configured for the Docker integration, files must be edited as root.
 
 The files in `/homepage/tpl/*.yaml` only serve as a base to set up the homepage configuration on first run.
+
+## Jellyseerr
+
+Jellyseer gives you content recommendations, allows others to make requests to you, and allows logging in with Jellyfin credentials.
+
+To setup, go to https://hostname/jellyseerr/setup, and set the URLs as follows:
+- Jellyfin: http://jellyfin:8096/jellyfin
+- Radarr:
+  - Hostname: radarr
+  - Port: 7878
+  - URL Base: /radarr
+- Sonarr
+  - Hostname: sonarr
+  - Port: 8989
+  - URL Base: /sonarr
 
 ## Traefik and SSL Certificates
 
@@ -346,6 +372,21 @@ services:
       - TECHNOLOGY=NordLynx
       - NETWORK=192.168.1.0/24  # So it can be accessed within the local network
 ```
+
+### Optional: Using the VPN for *arr apps
+
+If you want to use the VPN for Prowlarr and other *arr applications, add the following block to all the desired containers:
+```yml
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
+```
+
+Change the healthcheck to mark the containers as unhealthy when internet connection is not working by appending a URL
+to the healthcheck, eg: `test: [ "CMD", "curl", "--fail", "http://127.0.0.1:7878/radarr/ping", "https://google.com" ]`
+
+Then in Prowlarr, use `localhost` rather than `vpn` as the hostname, since they are on the same network.
 
 ## Synology Quirks
 
