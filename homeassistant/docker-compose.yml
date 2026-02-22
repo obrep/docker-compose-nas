@@ -45,7 +45,6 @@ services:
     volumes:
       - ${CONFIG_ROOT:-.}/homeassistant/mosquitto/config:/mosquitto/config
       - ${CONFIG_ROOT:-.}/homeassistant/mosquitto/data:/mosquitto/data
-      - ${CONFIG_ROOT:-.}/homeassistant/mosquitto/log:/mosquitto/log
     ports:
       - "1883:1883"
     healthcheck:
@@ -67,6 +66,11 @@ services:
       interval: 1m
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     profiles:
       - mqtt
   homeassistant-backup:
