@@ -326,7 +326,7 @@ services:
       - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.regex=(^.*\/qbittorrent$$)
       - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.replacement=$$1/
       - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.permanent=false
-      #- com.centurylinklabs.watchtower.depends-on=/vpn
+      - com.centurylinklabs.watchtower.depends-on=vpn
       - homepage.group=Download
       - homepage.name=qBittorrent
       - homepage.icon=qbittorrent.png
@@ -559,6 +559,8 @@ services:
     restart: always
     environment:
       - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_DEBUG=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   autoheal:
