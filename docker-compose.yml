@@ -361,6 +361,7 @@ services:
       - FIREWALL=0
       - ACTIVE_HEALTHCHECKS=1
       - RECONNECT=1
+      - ALLOW_MISSING_IPTABLES_RULES=1
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
       - net.ipv6.conf.default.disable_ipv6=1
