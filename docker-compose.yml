@@ -3,8 +3,6 @@ services:
     image: ghcr.io/traefik/traefik:3.7
     container_name: traefik
     restart: always
-    dns:
-      - 1.1.1.1
     environment:
       - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
       - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
@@ -40,8 +38,6 @@ services:
   sonarr:
     image: lscr.io/linuxserver/sonarr
     container_name: sonarr
-    dns:
-      - 1.1.1.1
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -72,8 +68,6 @@ services:
   radarr:
     image: lscr.io/linuxserver/radarr
     container_name: radarr
-    dns:
-      - 1.1.1.1
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -138,8 +132,6 @@ services:
     container_name: recyclarr
     user: ${USER_ID}:${GROUP_ID}
     restart: always
-    dns:
-      - 1.1.1.1
     environment:
       - TZ=${TIMEZONE}
       - CRON_SCHEDULE=${RECYCLARR_CRON_SCHEDULE:-@daily}
@@ -215,8 +207,6 @@ services:
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
-    dns:
-      - 1.1.1.1
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -273,8 +263,6 @@ services:
     image: 21hsmw/flaresolverr:nodriver
     container_name: flaresolverr
     restart: always
-    dns:
-      - 1.1.1.1
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_HTML=${LOG_HTML:-false}
@@ -473,9 +461,6 @@ services:
     image: lscr.io/linuxserver/sabnzbd:latest
     container_name: sabnzbd
     # Had to set host_whitelist = <container_id>, ${HOSTNAME}, sabnzbd, localhost in sabnzbd.ini for it to work
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -577,8 +562,6 @@ services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
-    dns:
-      - 1.1.1.1
     environment:
       - HOMEPAGE_VAR_TITLE=${HOMEPAGE_VAR_TITLE}
       - HOMEPAGE_VAR_SEARCH_PROVIDER=${HOMEPAGE_VAR_SEARCH_PROVIDER}
