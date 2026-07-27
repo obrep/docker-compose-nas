@@ -138,6 +138,8 @@ services:
     container_name: recyclarr
     user: ${USER_ID}:${GROUP_ID}
     restart: always
+    dns:
+      - 1.1.1.1
     environment:
       - TZ=${TIMEZONE}
       - CRON_SCHEDULE=${RECYCLARR_CRON_SCHEDULE:-@daily}
