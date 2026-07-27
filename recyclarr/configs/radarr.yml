@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://schemas.recyclarr.dev/v8/config-schema.json
+radarr:
+  main:
+    base_url: http://radarr:7878/radarr
+    api_key: !env_var RADARR_API_KEY
+
+    delete_old_custom_formats: true
+
+    quality_definition:
+      type: movie
+
+    quality_profiles:
+      # HD Bluray + WEB (1080p)
+      - trash_id: d1d67249d3890e49bc12e275d989a7e9
+        reset_unmatched_scores:
+          enabled: true
+
+      # UHD Bluray + WEB (2160p / 4K)
+      - trash_id: 64fb5f9858489bdac2af690e27c8f42f
+        reset_unmatched_scores:
+          enabled: true

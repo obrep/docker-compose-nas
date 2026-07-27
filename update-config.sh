@@ -2,37 +2,48 @@
 
 # See https://stackoverflow.com/a/44864004 for the sed GNU/BSD compatible hack
 
-echo "Updating Radarr configuration..."
-until [ -f ./radarr/config.xml ]
-do
-  sleep 5
-done
-sed -i.bak "s/<UrlBase><\/UrlBase>/<UrlBase>\/radarr<\/UrlBase>/" ./radarr/config.xml && rm ./radarr/config.xml.bak
-sed -i.bak 's/^RADARR_API_KEY=.*/RADARR_API_KEY='"$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' ./radarr/config.xml)"'/' .env && rm .env.bak
+function update_arr_config {
+  echo "Updating ${container} configuration..."
+  until [ -f "${CONFIG_ROOT:-.}"/"$container"/config.xml ]; do sleep 1; done
+  sed -i.bak "s/<UrlBase><\/UrlBase>/<UrlBase>\/$1<\/UrlBase>/" "${CONFIG_ROOT:-.}"/"$container"/config.xml && rm "${CONFIG_ROOT:-.}"/"$container"/config.xml.bak
+  CONTAINER_NAME_UPPER=$(echo "$container" | tr '[:lower:]' '[:upper:]')
+  sed -i.bak 's/^'"${CONTAINER_NAME_UPPER}"'_API_KEY=.*/'"${CONTAINER_NAME_UPPER}"'_API_KEY='"$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' "${CONFIG_ROOT:-.}"/"$container"/config.xml)"'/' .env && rm .env.bak
+  echo "Update of ${container} configuration complete, restarting..."
+  docker compose restart "$container"
+}
 
-echo "Updating Sonarr configuration..."
-until [ -f ./sonarr/config.xml ]
-do
-  sleep 5
-done
-sed -i.bak "s/<UrlBase><\/UrlBase>/<UrlBase>\/sonarr<\/UrlBase>/" ./sonarr/config.xml && rm ./sonarr/config.xml.bak
-sed -i.bak 's/^SONARR_API_KEY=.*/SONARR_API_KEY='"$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' ./sonarr/config.xml)"'/' .env && rm .env.bak
+function update_qbittorrent_config {
+    echo "Updating ${container} configuration..."
+    docker compose stop "$container"
+    until [ -f "${CONFIG_ROOT:-.}"/"$container"/qBittorrent/qBittorrent.conf ]; do sleep 1; done
+    sed -i.bak '/WebUI\\ServerDomains=*/a WebUI\\Password_PBKDF2="@ByteArray(ARQ77eY1NUZaQsuDHbIMCA==:0WMRkYTUWVT9wVvdDtHAjU9b3b7uB8NR1Gur2hmQCvCDpm39Q+PsJRJPaCU51dEiz+dTzh8qbPsL8WkFljQYFQ==)"' "${CONFIG_ROOT:-.}"/"$container"/qBittorrent/qBittorrent.conf && rm "${CONFIG_ROOT:-.}"/"$container"/qBittorrent/qBittorrent.conf.bak
+    echo "Update of ${container} configuration complete, restarting..."
+    docker compose start "$container"
+}
 
-echo "Updating Lidarr configuration..."
-until [ -f ./lidarr/config.xml ]
-do
-  sleep 5
-done
-sed -i.bak "s/<UrlBase><\/UrlBase>/<UrlBase>\/lidarr<\/UrlBase>/" ./lidarr/config.xml && rm ./lidarr/config.xml.bak
-sed -i.bak 's/^LIDARR_API_KEY=.*/LIDARR_API_KEY='"$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' ./lidarr/config.xml)"'/' .env && rm .env.bak
+function update_bazarr_config {
+    echo "Updating ${container} configuration..."
+    until [ -f "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml ]; do sleep 1; done
+    sed -i.bak "s/base_url: ''/base_url: '\/$container'/" "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml && rm "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml.bak
+    sed -i.bak "s/use_radarr: false/use_radarr: true/" "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml && rm "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml.bak
+    sed -i.bak "s/use_sonarr: false/use_sonarr: true/" "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml && rm "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml.bak
+    until [ -f "${CONFIG_ROOT:-.}"/sonarr/config.xml ]; do sleep 1; done
+    SONARR_API_KEY=$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' "${CONFIG_ROOT:-.}"/sonarr/config.xml)
+    sed -i.bak "/sonarr:/,/^radarr:/ { s/apikey: .*/apikey: $SONARR_API_KEY/; s/base_url: .*/base_url: \/sonarr/; s/ip: .*/ip: sonarr/ }" "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml && rm "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml.bak
+    until [ -f "${CONFIG_ROOT:-.}"/radarr/config.xml ]; do sleep 1; done
+    RADARR_API_KEY=$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' "${CONFIG_ROOT:-.}"/radarr/config.xml)
+    sed -i.bak "/radarr:/,/^sonarr:/ { s/apikey: .*/apikey: $RADARR_API_KEY/; s/base_url: .*/base_url: \/radarr/; s/ip: .*/ip: radarr/ }" "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml && rm "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml.bak
+    sed -i.bak 's/^BAZARR_API_KEY=.*/BAZARR_API_KEY='"$(sed -n 's/.*apikey: \(.*\)*/\1/p' "${CONFIG_ROOT:-.}"/"$container"/config/config/config.yaml | head -n 1)"'/' .env && rm .env.bak
+    echo "Update of ${container} configuration complete, restarting..."
+    docker compose restart "$container"
+}
 
-echo "Updating Prowlarr configuration..."
-until [ -f ./prowlarr/config.xml ]
-do
-  sleep 5
+for container in $(docker ps --format '{{.Names}}'); do
+  if [[ "$container" =~ ^(radarr|sonarr|lidarr|prowlarr)$ ]]; then
+    update_arr_config "$container"
+  elif [[ "$container" =~ ^(bazarr)$ ]]; then
+    update_bazarr_config "$container"
+  elif [[ "$container" =~ ^(qbittorrent)$ ]]; then
+    update_qbittorrent_config "$container"
+  fi
 done
-sed -i.bak "s/<UrlBase><\/UrlBase>/<UrlBase>\/prowlarr<\/UrlBase>/" ./prowlarr/config.xml && rm ./prowlarr/config.xml.bak
-sed -i.bak 's/^PROWLARR_API_KEY=.*/PROWLARR_API_KEY='"$(sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' ./prowlarr/config.xml)"'/' .env && rm .env.bak
-
-echo "Restarting containers..."
-docker-compose restart radarr sonarr prowlarr

@@ -1,7 +1,7 @@
 # Docker Compose NAS
 
-After searching for the perfect NAS solution, I realized what I wanted could be achieved 
-with some Docker containers on a vanilla Linux box. The result is an opinionated Docker Compose configuration capable of 
+After searching for the perfect NAS solution, I realized what I wanted could be achieved
+with some Docker containers on a vanilla Linux box. The result is an opinionated Docker Compose configuration capable of
 browsing indexers to retrieve media resources and downloading them through a WireGuard VPN with port forwarding.
 SSL certificates and remote access through Tailscale are supported.
 
@@ -13,71 +13,94 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
 ## Table of Contents
 
 <!-- TOC -->
-* [Docker Compose NAS](#docker-compose-nas)
-  * [Table of Contents](#table-of-contents)
-  * [Applications](#applications)
-  * [Quick Start](#quick-start)
-  * [Environment Variables](#environment-variables)
-  * [PIA WireGuard VPN](#pia-wireguard-vpn)
-  * [Sonarr, Radarr & Lidarr](#sonarr-radarr--lidarr)
-    * [File Structure](#file-structure)
-    * [Download Client](#download-client)
-  * [Prowlarr](#prowlarr)
-  * [qBittorrent](#qbittorrent)
-  * [Jellyfin](#jellyfin)
-  * [Homepage](#homepage)
-  * [Jellyseerr](#jellyseerr)
-  * [Traefik and SSL Certificates](#traefik-and-ssl-certificates)
-    * [Accessing from the outside with Tailscale](#accessing-from-the-outside-with-tailscale)
-  * [Optional Services](#optional-services)
-    * [FlareSolverr](#flaresolverr)
-    * [SABnzbd](#sabnzbd)
-    * [AdGuard Home](#adguard-home)
-      * [Encryption](#encryption)
-      * [DHCP](#dhcp)
-      * [Expose DNS Server with Tailscale](#expose-dns-server-with-tailscale)
-  * [Customization](#customization)
-    * [Optional: Using the VPN for *arr apps](#optional-using-the-vpn-for-arr-apps)
-  * [Synology Quirks](#synology-quirks)
-    * [Free Ports 80 and 443](#free-ports-80-and-443)
-    * [Install Synology WireGuard](#install-synology-wireguard)
-    * [Free Port 1900](#free-port-1900)
-    * [User Permissions](#user-permissions)
-    * [Synology DHCP Server and Adguard Home Port Conflict](#synology-dhcp-server-and-adguard-home-port-conflict)
-  * [Use Separate Paths for Torrents and Storage](#use-separate-paths-for-torrents-and-storage)
-  * [NFS Share](#nfs-share)
-  * [Static IP](#static-ip)
-  * [Laptop Specific Configuration](#laptop-specific-configuration)
-<!-- TOC -->
+
+- [Docker Compose NAS](#docker-compose-nas)
+  - [Table of Contents](#table-of-contents)
+  - [Applications](#applications)
+  - [Quick Start](#quick-start)
+  - [Environment Variables](#environment-variables)
+  - [PIA WireGuard VPN](#pia-wireguard-vpn)
+  - [Sonarr, Radarr & Lidarr](#sonarr-radarr--lidarr)
+    - [File Structure](#file-structure)
+    - [Download Client](#download-client)
+  - [Prowlarr](#prowlarr)
+  - [Recyclarr](#recyclarr)
+  - [Cross-Seed](#cross-seed)
+  - [qBittorrent](#qbittorrent)
+  - [Jellyfin](#jellyfin)
+  - [Homepage](#homepage)
+  - [Seerr](#seerr)
+  - [Traefik and SSL Certificates](#traefik-and-ssl-certificates)
+    - [Accessing from the outside with Tailscale](#accessing-from-the-outside-with-tailscale)
+  - [Optional Services](#optional-services)
+    - [FlareSolverr](#flaresolverr)
+    - [SABnzbd](#sabnzbd)
+    - [AdGuard Home](#adguard-home)
+      - [Encryption](#encryption)
+      - [DHCP](#dhcp)
+      - [Expose DNS Server with Tailscale](#expose-dns-server-with-tailscale)
+    - [Calibre-Web](#calibre-web)
+    - [Decluttarr](#decluttarr)
+    - [Tandoor](#tandoor)
+    - [Joplin](#joplin)
+    - [Home Assistant](#home-assistant)
+    - [Immich](#immich)
+    - [Vaultwarden](#vaultwarden)
+    - [Paperless Ngx](#paperless-ngx)
+  - [Customization](#customization)
+    - [Optional: Using the VPN for \*arr apps](#optional-using-the-vpn-for-arr-apps)
+  - [Synology Quirks](#synology-quirks)
+    - [Free Ports 80 and 443](#free-ports-80-and-443)
+    - [Install Synology WireGuard](#install-synology-wireguard)
+    - [Free Port 1900](#free-port-1900)
+    - [User Permissions](#user-permissions)
+    - [Synology DHCP Server and Adguard Home Port Conflict](#synology-dhcp-server-and-adguard-home-port-conflict)
+  - [Use Separate Paths for Torrents and Storage](#use-separate-paths-for-torrents-and-storage)
+  - [NFS Share](#nfs-share)
+  - [Static IP](#static-ip)
+  - [Laptop Specific Configuration](#laptop-specific-configuration)
+  <!-- TOC -->
 
 ## Applications
 
-| **Application**                                                      | **Description**                                                                                                                                      | **Image**                                                                                | **URL**      |
-|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|--------------|
-| [Sonarr](https://sonarr.tv)                                          | PVR for newsgroup and bittorrent users                                                                                                               | [linuxserver/sonarr](https://hub.docker.com/r/linuxserver/sonarr)                        | /sonarr      |
-| [Radarr](https://radarr.video)                                       | Movie collection manager for Usenet and BitTorrent users                                                                                             | [linuxserver/radarr](https://hub.docker.com/r/linuxserver/radarr)                        | /radarr      |
-| [Lidarr](https://lidarr.audio)                                       | Music collection manager for Usenet and BitTorrent users                                                                                             | [linuxserver/lidarr](https://hub.docker.com/r/linuxserver/lidarr)                        | /lidarr      |
-| [Prowlarr](https://github.com/Prowlarr/Prowlarr)                     | Indexer aggregator for Sonarr and Radarr                                                                                                             | [linuxserver/prowlarr:latest](https://hub.docker.com/r/linuxserver/prowlarr)             | /prowlarr    |
-| [PIA WireGuard VPN](https://github.com/thrnz/docker-wireguard-pia)   | Encapsulate qBittorrent traffic in [PIA](https://www.privateinternetaccess.com/) using [WireGuard](https://www.wireguard.com/) with port forwarding. | [thrnz/docker-wireguard-pia](https://hub.docker.com/r/thrnz/docker-wireguard-pia)        |              |
-| [qBittorrent](https://www.qbittorrent.org)                           | Bittorrent client with a complete web UI<br/>Uses VPN network<br/>Using Libtorrent 1.x                                                               | [linuxserver/qbittorrent:libtorrentv1](https://hub.docker.com/r/linuxserver/qbittorrent) | /qbittorrent |
-| [Jellyfin](https://jellyfin.org)                                     | Media server designed to organize, manage, and share digital media files to networked devices                                                        | [linuxserver/jellyfin](https://hub.docker.com/r/linuxserver/jellyfin)                    | /jellyfin    |
-| [Jellyseer](https://jellyfin.org)                                    | Manages requests for your media library                                                                                                              | [fallenbagel/jellyseerr](https://hub.docker.com/r/fallenbagel/jellyseerr)                | /jellyseer   |
-| [Homepage](https://gethomepage.dev)                                  | Application dashboard                                                                                                                                | [gethomepage/homepage](https://github.com/gethomepage/homepage/pkgs/container/homepage)  | /            |
-| [Traefik](https://traefik.io)                                        | Reverse proxy                                                                                                                                        | [traefik](https://hub.docker.com/_/traefik)                                              |              |
-| [Watchtower](https://containrrr.dev/watchtower/)                     | Automated Docker images update                                                                                                                       | [containrrr/watchtower](https://hub.docker.com/r/containrrr/watchtower)                  |              |
-| [Autoheal](https://github.com/willfarrell/docker-autoheal/)          | Monitor and restart unhealthy docker containers                                                                                                      | [willfarrell/autoheal](https://hub.docker.com/r/willfarrell/autoheal)                    |              |
-| [SABnzbd](https://sabnzbd.org/)                                      | Optional - Free and easy binary newsreader                                                                                                           | [linuxserver/sabnzbd](https://hub.docker.com/r/linuxserver/sabnzbd)                      | /sabnzbd     |
-| [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)         | Optional - Proxy server to bypass Cloudflare protection in Prowlarr                                                                                  | [flaresolverr/flaresolverr](https://hub.docker.com/r/flaresolverr/flaresolverr)          |              |
-| [AdGuard Home](https://adguard.com/en/adguard-home/overview.html)    | Optional - Network-wide software for blocking ads & tracking                                                                                         | [adguard/adguardhome](https://hub.docker.com/r/adguard/adguardhome)                      |              |
-| [DHCP Relay](https://github.com/modem7/DHCP-Relay)                   | Optional - Docker DHCP Relay                                                                                                                         | [modem7/dhcprelay](https://hub.docker.com/r/modem7/dhcprelay)                            |              |
-| [Traefik Certs Dumper](https://github.com/ldez/traefik-certs-dumper) | Optional - Dump ACME data from Traefik to certificates                                                                                               | [ldez/traefik-certs-dumper](https://hub.docker.com/r/ldez/traefik-certs-dumper)          |              |
+| **Application**                                                    | **Description**                                                                                                                                               | **Image**                                                                                | **URL**                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
+| [Sonarr](https://sonarr.tv)                                        | PVR for newsgroup and bittorrent users                                                                                                                        | [linuxserver/sonarr](https://hub.docker.com/r/linuxserver/sonarr)                        | /sonarr                |
+| [Radarr](https://radarr.video)                                     | Movie collection manager for Usenet and BitTorrent users                                                                                                      | [linuxserver/radarr](https://hub.docker.com/r/linuxserver/radarr)                        | /radarr                |
+| [Recyclarr](https://recyclarr.dev)                                 | Syncs TRaSH Guides quality profiles and custom formats to Sonarr and Radarr                                                                                    | [recyclarr/recyclarr](https://github.com/recyclarr/recyclarr/pkgs/container/recyclarr)   |                        |
+| [Bazarr](https://www.bazarr.media/)                                | Optional - Companion application to Sonarr and Radarr that manages and downloads subtitles<br/>Enable with `COMPOSE_PROFILES=bazarr`                          | [linuxserver/bazarr](https://hub.docker.com/r/linuxserver/bazarr)                        | /bazarr                |
+| [Prowlarr](https://github.com/Prowlarr/Prowlarr)                   | Indexer aggregator for Sonarr and Radarr                                                                                                                      | [linuxserver/prowlarr:latest](https://hub.docker.com/r/linuxserver/prowlarr)             | /prowlarr              |
+| [PIA WireGuard VPN](https://github.com/thrnz/docker-wireguard-pia) | Optional - Encapsulate qBittorrent traffic in [PIA](https://www.privateinternetaccess.com/) using [WireGuard](https://www.wireguard.com/) with port forwarding.<br/>Enable with `COMPOSE_PROFILES=qbittorrent` | [thrnz/docker-wireguard-pia](https://hub.docker.com/r/thrnz/docker-wireguard-pia)        |                        |
+| [qBittorrent](https://www.qbittorrent.org)                         | Optional - Bittorrent client with a complete web UI<br/>Uses VPN network<br/>Using Libtorrent 1.x<br/>Enable with `COMPOSE_PROFILES=qbittorrent`               | [linuxserver/qbittorrent:libtorrentv1](https://hub.docker.com/r/linuxserver/qbittorrent) | /qbittorrent           |
+| [Unpackerr](https://unpackerr.zip)                                 | Optional - Automated Archive Extractions<br/>Enable with `COMPOSE_PROFILES=unpackerr`                                                                          | [golift/unpackerr](https://hub.docker.com/r/golift/unpackerr)                            |                        |
+| [Jellyfin](https://jellyfin.org)                                   | Optional - Media server designed to organize, manage, and share digital media files to networked devices<br/>Enable with `COMPOSE_PROFILES=jellyfin`           | [linuxserver/jellyfin](https://hub.docker.com/r/linuxserver/jellyfin)                    | /jellyfin              |
+| [Jellyseer](https://seerr.dev/)                                    | Optional - Manages requests for your media library<br/>Enable with `COMPOSE_PROFILES=seerr`                                                                    | [docker pull ghcr.io/seerr-team/seerr:sha-04b9d87](https://github.com/seerr-team/seerr/pkgs/container/seerr)                | `$SEERR_HOSTNAME` |
+| [Homepage](https://gethomepage.dev)                                | Application dashboard                                                                                                                                         | [gethomepage/homepage](https://github.com/gethomepage/homepage/pkgs/container/homepage)  | /                      |
+| [Traefik](https://traefik.io)                                      | Reverse proxy                                                                                                                                                 | [traefik](https://hub.docker.com/_/traefik)                                              |                        |
+| [Watchtower](https://watchtower.nickfedor.com)                     | Automated Docker images update                                                                                                                                | [nicholas-fedor/watchtower](https://ghcr.io/nicholas-fedor/watchtower)                   |                        |
+| [Autoheal](https://github.com/willfarrell/docker-autoheal/)        | Monitor and restart unhealthy Docker containers                                                                                                               | [willfarrell/autoheal](https://hub.docker.com/r/willfarrell/autoheal)                    |                        |
+| [Lidarr](https://lidarr.audio)                                     | Optional - Music collection manager for Usenet and BitTorrent users<br/>Enable with `COMPOSE_PROFILES=lidarr`                                                 | [linuxserver/lidarr](https://hub.docker.com/r/linuxserver/lidarr)                        | /lidarr                |
+| [SABnzbd](https://sabnzbd.org/)                                    | Optional - Free and easy binary newsreader<br/>Enable with `COMPOSE_PROFILES=sabnzbd`                                                                         | [linuxserver/sabnzbd](https://hub.docker.com/r/linuxserver/sabnzbd)                      | /sabnzbd               |
+| [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)       | Optional - Proxy server to bypass Cloudflare protection in Prowlarr<br/>Enable with `COMPOSE_PROFILES=flaresolverr`                                           | [flaresolverr/flaresolverr](https://hub.docker.com/r/flaresolverr/flaresolverr)          |                        |
+| [AdGuard Home](https://adguard.com/en/adguard-home/overview.html)  | Optional - Network-wide software for blocking ads & tracking<br/>Enable with `COMPOSE_PROFILES=adguardhome`                                                   | [adguard/adguardhome](https://hub.docker.com/r/adguard/adguardhome)                      |                        |
+| [Tandoor](https://tandoor.dev)                                     | Optional - Smart recipe management<br/>Enable with `COMPOSE_PROFILES=tandoor`                                                                                 | [vabene1111/recipes](https://hub.docker.com/r/vabene1111/recipes)                        | /recipes               |
+| [Joplin](https://joplinapp.org)                                    | Optional - Note taking application<br/>Enable with `COMPOSE_PROFILES=joplin`                                                                                  | [joplin/server](https://hub.docker.com/r/joplin/server)                                  | /joplin                |
+| [Home Assistant](https://www.home-assistant.io)                    | Optional - Open source home automation that puts local control and privacy first<br/>Enable with `COMPOSE_PROFILES=homeassistant`                             | [home-assistant/home-assistant:stable](https://ghcr.io/home-assistant/home-assistant)    |                        |
+| [Immich](https://immich.app)                                       | Optional - Self-hosted photo and video management solution<br/>Enable with `COMPOSE_PROFILES=immich`                                                          | [immich-app/immich-server:release](https://ghcr.io/immich-app/immich-server)             |                        |
+| [Calibre-Web](https://github.com/janeczku/calibre-web)             | Optional - Web app for browsing, reading and downloading eBooks stored in a Calibre database<br/>Enable with `COMPOSE_PROFILES=calibre-web`                   | [linuxserver/calibre-web](https://hub.docker.com/r/linuxserver/calibre-web)              | /calibre               |
+| [Vaultwarden](https://github.com/dani-garcia/vaultwarden)          | Optional - Password manager<br/>Enable with `COMPOSE_PROFILES=vaultwarden`                                                                                    | [dani-garcia/vaultwarden](https://ghcr.io/dani-garcia/vaultwarden)                       | /vaultwarden           |
+| [Cleanuparr](https://github.com/Cleanuparr/Cleanuparr)             | Optional - Cleanuparr is a tool for automating the cleanup of unwanted or blocked files in Sonarr and Radarr<br/>Enable with `COMPOSE_PROFILES=cleanuparr`    | [cleanuparr/cleanuparr](https://ghcr.io/cleanuparr/cleanuparr)                           | /cleanuparr            |
+| [Cross-Seed](https://github.com/cross-seed/cross-seed)             | Optional - Cross-Seed is a tool for automating the cross-seeding of torrents<br/>Enable with `COMPOSE_PROFILES=cross-seed`                                    | [cross-seed/cross-seed](https://ghcr.io/cross-seed/cross-seed)                           |                        |
+| [Autobrr](https://github.com/autobrr/autobrr)                      | Optional - Autobrr is a tool for automating the downloading of torrents<br/>Enable with `COMPOSE_PROFILES=autobrr`                                            | [autobrr/autobrr](https://ghcr.io/autobrr/autobrr)                                       | /autobrr               |
+| [Suggestarr](github.com/giuseppe99barchetta/SuggestArr)                      | Optional - SuggestArr is a project designed to automate media content recommendations and download requests<br/>Enable with `COMPOSE_PROFILES=suggestarr`                                            | [ciuse99/suggestarr](https://hub.docker.com/r/ciuse99/suggestarr)                                       | /suggestarr               |
+| [Paperless Ngx](https://paperless-ngx.com)                            | Optional - Document management system for organizing and searching your documents<br/>Enable with `COMPOSE_PROFILES=paperless`                                                     | [paperless-ngx/paperless-ngx](https://ghcr.io/paperless-ngx/paperless-ngx)                           | /paperless               |
 
-Optional containers are not run by default, they need to be enabled, 
+Optional containers are not enabled by default, they need to be enabled,
 see [Optional Services](#optional-services) for more information.
 
 ## Quick Start
 
-`cp .env.example .env`, edit to your needs then `sudo docker compose up -d`.
+`cp .env.example .env`, edit to your needs then `docker compose up -d`.
 
 For the first time, run `./update-config.sh` to update the applications base URLs and set the API keys in `.env`.
 
@@ -86,12 +109,13 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 ## Environment Variables
 
 | Variable                       | Description                                                                                                                                                                                            | Default                                          |
-|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| `COMPOSE_FILE`                 | Docker compose files to load                                                                                                                                                                           | `docker-compose.yml`                             |
-| `COMPOSE_PATH_SEPARATOR`       | Path separator between compose files to load                                                                                                                                                           | `:`                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `COMPOSE_FILE`                 | Docker compose files to load                                                                                                                                                                           |                                                  |
+| `COMPOSE_PROFILES`             | Docker compose profiles to load (`lidarr`, `flaresolverr`, `sabnzbd`, `bazarr`, `seerr`, `jellyfin`, `unpackerr`, `qbittorrent`, `suggestarr`, `autobrr`, `cross-seed`, `cleanuparr`, `calibre-web`)   | `lidarr,flaresolverr,sabnzbd`                    |
 | `USER_ID`                      | ID of the user to use in Docker containers                                                                                                                                                             | `1000`                                           |
 | `GROUP_ID`                     | ID of the user group to use in Docker containers                                                                                                                                                       | `1000`                                           |
 | `TIMEZONE`                     | TimeZone used by the container.                                                                                                                                                                        | `America/New_York`                               |
+| `CONFIG_ROOT`                  | Host location for configuration files                                                                                                                                                                  | `.`                                              |
 | `DATA_ROOT`                    | Host location of the data files                                                                                                                                                                        | `/mnt/data`                                      |
 | `DOWNLOAD_ROOT`                | Host download location for qBittorrent, should be a subfolder of `DATA_ROOT`                                                                                                                           | `/mnt/data/torrents`                             |
 | `PIA_LOCATION`                 | Servers to use for PIA. [see list here](https://serverlist.piaservers.net/vpninfo/servers/v6)                                                                                                          | `ca` (Montreal, Canada)                          |
@@ -99,6 +123,7 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `PIA_PASS`                     | PIA password                                                                                                                                                                                           |                                                  |
 | `PIA_LOCAL_NETWORK`            | PIA local network                                                                                                                                                                                      | `192.168.0.0/16`                                 |
 | `HOSTNAME`                     | Hostname of the NAS, could be a local IP or a domain name                                                                                                                                              | `localhost`                                      |
+| `BASE_HOSTNAME`                | Base hostname of the NAS, useful if hostname is a subdomain                                                                                                                                            | `localhost`                                      |
 | `ADGUARD_HOSTNAME`             | Optional - AdGuard Home hostname used, if enabled                                                                                                                                                      |                                                  |
 | `ADGUARD_USERNAME`             | Optional - AdGuard Home username to show details in the homepage, if enabled                                                                                                                           |                                                  |
 | `ADGUARD_PASSWORD`             | Optional - AdGuard Home password to show details in the homepage, if enabled                                                                                                                           |                                                  |
@@ -115,8 +140,12 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `RADARR_API_KEY`               | Radarr API key to show information in the homepage                                                                                                                                                     |                                                  |
 | `LIDARR_API_KEY`               | Lidarr API key to show information in the homepage                                                                                                                                                     |                                                  |
 | `PROWLARR_API_KEY`             | Prowlarr API key to show information in the homepage                                                                                                                                                   |                                                  |
+| `BAZARR_API_KEY`               | Bazarr API key to show information in the homepage                                                                                                                                                     |                                                  |
 | `JELLYFIN_API_KEY`             | Jellyfin API key to show information in the homepage                                                                                                                                                   |                                                  |
-| `JELLYSEERR_API_KEY`           | Jellyseer API key to show information in the homepage                                                                                                                                                  |                                                  |
+| `SEERR_API_KEY`                | Seer API key to show information in the homepage                                                                                                                                                  |                                                  |
+| `SABNZBD_API_KEY`              | Sabnzbd API key to show information in the homepage                                                                                                                                                    |                                                  |
+| `AUTOBRR_API_KEY`              | Autobrr API key to show information in the homepage                                                                                                                                                    |                                                  |
+| `RECYCLARR_CRON_SCHEDULE`      | Standard cron syntax for how often Recyclarr syncs TRaSH Guides profiles to Sonarr/Radarr                                                                                                              | `@daily`                                         |
 | `HOMEPAGE_VAR_TITLE`           | Title of the homepage                                                                                                                                                                                  | `Docker-Compose NAS`                             |
 | `HOMEPAGE_VAR_SEARCH_PROVIDER` | Homepage search provider, [see list here](https://gethomepage.dev/en/widgets/search/)                                                                                                                  | `google`                                         |
 | `HOMEPAGE_VAR_HEADER_STYLE`    | Homepage header style, [see list here](https://gethomepage.dev/en/configs/settings/#header-style)                                                                                                      | `boxed`                                          |
@@ -124,8 +153,14 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `HOMEPAGE_VAR_WEATHER_LAT`     | Homepage weather city latitude                                                                                                                                                                         |                                                  |
 | `HOMEPAGE_VAR_WEATHER_LONG`    | Homepage weather city longitude                                                                                                                                                                        |                                                  |
 | `HOMEPAGE_VAR_WEATHER_UNIT`    | Homepage weather unit, either `metric` or `imperial`                                                                                                                                                   | `metric`                                         |
+| `CALIBRE_USERNAME`             | Optional - Calibre-Web username to show details in the homepage, if enabled                                                                                                                            | `admin`                                          |
+| `CALIBRE_PASSWORD`             | Optional - Calibre-Web password to show details in the homepage, if enabled                                                                                                                            | `admin123`                                       |
+| `SEERR_HOSTNAME`          | Seerr hostname used                                                                                                                                                                               |                                                  |
 
 ## PIA WireGuard VPN
+
+Optional - disabled by default (no VPN provider configured). Enable with `COMPOSE_PROFILES=qbittorrent`, which also
+brings up qBittorrent since its network traffic is routed through this container.
 
 I chose PIA since it supports WireGuard and [port forwarding](https://github.com/thrnz/docker-wireguard-pia/issues/26#issuecomment-868165281),
 but you could use other providers:
@@ -139,7 +174,7 @@ For PIA + WireGuard, fill `.env` and fill it with your PIA credentials.
 
 The location of the server it will connect to is set by `LOC=ca`, defaulting to Montreal - Canada.
 
-You need to fill the credentials in the `PIA_*` environment variable, 
+You need to fill the credentials in the `PIA_*` environment variable,
 otherwise the VPN container will exit and qBittorrent will not start.
 
 ## Sonarr, Radarr & Lidarr
@@ -147,7 +182,7 @@ otherwise the VPN container will exit and qBittorrent will not start.
 ### File Structure
 
 Sonarr, Radarr, and Lidarr must be configured to support hardlinks, to allow instant moves and prevent using twice the storage
-(Bittorrent downloads and final file). The trick is to use a single volume shared by the Bittorrent client and the *arrs.
+(Bittorrent downloads and final file). The trick is to use a single volume shared by the Bittorrent client and the \*arrs.
 Subfolders are used to separate the TV shows from the movies.
 
 The configuration is well explained by [this guide](https://trash-guides.info/Hardlinks/How-to-setup-for/Docker/).
@@ -180,15 +215,45 @@ place in the VPN container, the hostname for qBittorrent is the hostname of the 
 The indexers are configured through Prowlarr. They synchronize automatically to Radarr and Sonarr.
 
 Radarr and Sonarr may then be added via Settings > Apps. The Prowlarr server is `http://prowlarr:9696/prowlarr`, the Radarr server
-is `http://radarr:7878/radarr` Sonarr `http://sonarr:8989/sonarr`, and Lidarr `http://lidarr:8686/lidarr`:
+is `http://radarr:7878/radarr` Sonarr `http://sonarr:8989/sonarr`, and Lidarr `http://lidarr:8686/lidarr`.
 
 Their API keys can be found in Settings > Security > API Key.
 
+## Recyclarr
+
+[Recyclarr](https://recyclarr.dev) automatically syncs [TRaSH Guides](https://trash-guides.info) quality profiles and
+custom formats to Sonarr and Radarr, on the schedule set by `RECYCLARR_CRON_SCHEDULE` (daily by default). It does not
+manage Lidarr, which isn't supported by Recyclarr.
+
+Configuration lives in `recyclarr/configs/sonarr.yml` and `recyclarr/configs/radarr.yml`. Both `SONARR_API_KEY` and
+`RADARR_API_KEY` are read from `.env` (set by `update-config.sh`) rather than stored in the config files.
+
+By default, both files set up two quality profiles each: `WEB-1080p` / `WEB-2160p` for Sonarr and
+`HD Bluray + WEB` / `UHD Bluray + WEB` for Radarr. Assign the profile you want per series/movie in Sonarr/Radarr.
+
+To trigger a sync manually instead of waiting for the schedule: `docker compose exec recyclarr recyclarr sync`.
+
+See the [Quick Setup Templates](https://recyclarr.dev/guide/guide-configs) page for other available profiles (anime,
+French, German, remux, ...), and the [Configuration Reference](https://recyclarr.dev/reference/configuration) to
+customize scores or add optional custom formats.
+
 ## qBittorrent
 
-Set the default save path to `/data/torrents` in Settings, and restrict the network interface to WireGuard (`wg0`).
+Optional - disabled by default, along with its VPN container (see [PIA WireGuard VPN](#pia-wireguard-vpn)).
+Enable with `COMPOSE_PROFILES=qbittorrent`.
 
-The web UI login page can be disabled on for the local network in Settings > Web UI > Bypass authentication for clients
+Running `update-config.sh` will set qBittorrent's password to `adminadmin`. If you wish to update the password manually,
+since qBittorrent v4.6.2, a temporary password is generated on startup. Get it with `docker compose logs qbittorrent`:
+
+```
+The WebUI administrator username is: admin
+The WebUI administrator password was not set. A temporary password is provided for this session: <some_password>
+```
+
+Use this password to access the UI, then go to Settings > Web UI and set your own password,
+then set it in `.env`'s `QBITTORRENT_PASSWORD` variable.
+
+The login page can be disabled on for the local network in by enabling `Bypass authentication for clients`.
 
 ```
 192.168.0.0/16
@@ -196,12 +261,18 @@ The web UI login page can be disabled on for the local network in Settings > Web
 172.17.0.0/16
 ```
 
+Set the default save path to `/data/torrents` in Settings, and restrict the network interface to WireGuard (`wg0`).
+
+To use the VueTorrent WebUI just go to `qBittorrent`, `Options`, `Web UI`, `Use Alternative WebUI`, and enter `/vuetorrent`. Special thanks to gabe565 for the easy enablement with (https://github.com/gabe565/linuxserver-mod-vuetorrent).
+
 ## Jellyfin
 
-To enable [hardware transcoding](https://jellyfin.org/docs/general/administration/hardware-acceleration/),
-depending on your system, you may need to update the following block:
+Optional - disabled by default. Enable with `COMPOSE_PROFILES=jellyfin`.
 
-```    
+To enable [hardware transcoding](https://jellyfin.org/docs/general/administration/hardware-acceleration/),
+depending on your system, you may need to add the following block:
+
+```
 devices:
   - /dev/dri/renderD128:/dev/dri/renderD128
   - /dev/dri/card0:/dev/dri/card0
@@ -214,16 +285,23 @@ hardware.
 
 The homepage comes with sensible defaults; some settings can ben controlled via environment variables in `.env`.
 
-If you to customize further, you can modify the files in `/homepage/*.yaml` according to the [documentation](https://gethomepage.dev). 
+If you to customize further, you can modify the files in `/homepage/*.yaml` according to the [documentation](https://gethomepage.dev).
 Due to how the Docker socket is configured for the Docker integration, files must be edited as root.
 
 The files in `/homepage/tpl/*.yaml` only serve as a base to set up the homepage configuration on first run.
 
-## Jellyseerr
+## Seerr
+
+Optional - disabled by default. Enable with `COMPOSE_PROFILES=seerr`.
 
 Jellyseer gives you content recommendations, allows others to make requests to you, and allows logging in with Jellyfin credentials.
 
-To setup, go to https://hostname/jellyseerr/setup, and set the URLs as follows:
+Set the `SEERR_HOSTNAME`, since it does not support
+[running in a subfolder](https://github.com/seerr-team/seerr/pull/1411).
+Add the necessary DNS records in your domain.
+
+To set up, go to the Seerr hostname, and set the URLs as follows:
+
 - Jellyfin: http://jellyfin:8096/jellyfin
 - Radarr:
   - Hostname: radarr
@@ -245,6 +323,7 @@ Traefik makes this trivial by using Let's Encrypt and one of its
 Let's assume we are using `nas.domain.com` as custom subdomain.
 
 The idea is to create an A record pointing to the private IP of the NAS, `192.168.0.10` for example:
+
 ```
 nas.domain.com.	1	IN	A	192.168.0.10
 ```
@@ -259,6 +338,7 @@ Then, fill the CloudFlare `.env` entries.
 
 If you want to test your configuration first, use the Let's Encrypt staging server by updating `LETS_ENCRYPT_CA_SERVER`'s
 value in `.env`:
+
 ```
 LETS_ENCRYPT_CA_SERVER=https://acme-staging-v02.api.letsencrypt.org/directory
 ```
@@ -266,8 +346,8 @@ LETS_ENCRYPT_CA_SERVER=https://acme-staging-v02.api.letsencrypt.org/directory
 If it worked, you will see the staging certificate at https://nas.domain.com.
 You may remove the `./letsencrypt/acme.json` file and restart the services to issue the real certificate.
 
-You are free to use any DNS01 provider. Simply replace `DNS_CHALLENGE_PROVIDER` with your own provider, 
-[see complete list here](https://doc.traefik.io/traefik/https/acme/#providers). 
+You are free to use any DNS01 provider. Simply replace `DNS_CHALLENGE_PROVIDER` with your own provider,
+[see complete list here](https://doc.traefik.io/traefik/https/acme/#providers).
 You will also need to inject the environments variables specific to your provider.
 
 Certificate generation can be disabled by setting `DNS_CHALLENGE` to `false`.
@@ -279,6 +359,7 @@ If we want to make it reachable from outside the network without opening ports o
 you are connecting from, and they will see each other.
 
 In this case, the A record should point to the IP Tailscale assigned to the NAS, eg `100.xxx.xxx.xxx`:
+
 ```
 nas.domain.com.	1	IN	A	100.xxx.xxx.xxx
 ```
@@ -294,22 +375,51 @@ and from the outside you need to connect to Tailscale first, then the NAS domain
 
 ## Optional Services
 
-As their name would suggest, optional services are not launched by default. They have their own `docker-compose.yml` file
-in their subfolders. To enable a service, append it to the `COMPOSE_FILE` environment variable.
+Optional services are not launched by default and enabled by appending their profile name to the
+`COMPOSE_PROFILES` environment variable (see [Docker documentation](https://docs.docker.com/compose/profiles)).
 
-Say you want to enable FlareSolverr, you should have `COMPOSE_FILE=docker-compose.yml:flaresolverr/docker-compose.yml`
+Say you want to enable FlareSolverr, you should have `COMPOSE_PROFILES=flaresolverr`.
+
+Multiple optional services can be enabled separated by commas: `COMPOSE_PROFILES=flaresolverr,adguardhome`.
 
 ### FlareSolverr
 
 In Prowlarr, add the FlareSolverr indexer with the URL http://flaresolverr:8191/
 
+### Cross-Seed
+
+Enable Cross-Seed by setting `COMPOSE_PROFILES=cross-seed`.
+
+Generate the configuration file with `docker compose run -v ./cross-seed:/config cross-seed gen-config`.
+
+Modify the configuration file as follows:
+
+```js
+module.exports = {
+  ...
+  torznab: [
+    "http://prowlarr:9696/prowlarr/1/api?apikey=<api_key>",
+    ...
+  ],
+  sonarr: ["http://sonarr:8989/sonarr?apikey=<api_key>"],
+  radarr: ["http://radarr:7878/radarr?apikey=<api_key>"],
+  torrentClients: ["qbittorrent:http://admin:adminadmin@vpn:8080"],
+  linkDirs: ["/data/torrents"],
+  ...
+}
+```
+
 ### SABnzbd
 
-Enable SABnzbd by setting `COMPOSE_FILE=docker-compose.yml:sabnzbd/docker-compose.yml`. It will be accessible at `/sabnzbd`.
+Enable SABnzbd by setting `COMPOSE_PROFILES=sabnzbd`. It will be accessible at `/sabnzbd`.
 
 If that is not the case, the `url_base` parameter in `sabnzbd.ini` should be set to `/sabnzbd`.
 
+Additionally, `host_whitelist` value should be set to your hostname.
+
 ### AdGuard Home
+
+Enable AdGuard Home by setting `COMPOSE_PROFILES=adguardhome`.
 
 Set the `ADGUARD_HOSTNAME`, I chose a different subdomain to use secure DNS without the folder.
 
@@ -327,7 +437,7 @@ from the ACME certificates Traefik generates in JSON.
 #### DHCP
 
 If you want to use the AdGuard Home DHCP server, for example because your router does not allow changing its DNS server,
-you will need to select the `eth0` DHCP interface matching `10.0.0.10`, then specify the 
+you will need to select the `eth0` DHCP interface matching `10.0.0.10`, then specify the
 Gateway IP to match your router address (`192.168.0.1` for example) and set a range of IP addresses assigned to local
 devices.
 
@@ -335,6 +445,7 @@ In `adguardhome/docker-compose.yml`, set the network interface `dhcp-relay` shou
 `enp2s0`, but you may need to change it to your host's network interface, verify it with `ip a`.
 
 In the configuration (`adguardhome/conf/AdGuardHome.yaml`), set the DHCP options 6th key to your NAS internal IP address:
+
 ```yml
 dhcp:
   dhcpv4:
@@ -342,10 +453,55 @@ dhcp:
       - 6 ips 192.168.0.10,192.168.0.10
 ```
 
+Enable DHCP Relay by setting `COMPOSE_PROFILES=adguardhome-dhcp`.
+
 #### Expose DNS Server with Tailscale
 
 Based on [Tailscale's documentation](https://tailscale.com/kb/1114/pi-hole), it is easy to use your AdGuard server everywhere.
 Just make sure that AdGuard Home listens to all interfaces.
+
+### Calibre-Web
+
+If you do not have a Calibre database, download a sample from: https://github.com/janeczku/calibre-web/raw/master/library/metadata.db
+and place it in `${DATA_ROOT}/books`.
+
+On the initial setup screen, enter `/books` as your calibre library location.
+
+**Default admin login:** Username: `admin` Password: `admin123`.
+
+Unrar is included by default and needs to be set in the Calibre-Web admin page (Basic Configuration:External Binaries)
+with a path of `/usr/bin/unrar`.
+
+### Decluttarr
+
+Decluttarr keeps the queue free of stalled and redundant downloads. For configuration options and examples,
+please see https://github.com/ManiMatter/decluttarr/blob/dev/README.md.
+
+All environment variables are prefixed with `DECLUTTARR_`.
+
+### Tandoor
+
+See [here](./tandoor/README.md).
+
+### Joplin
+
+See [here](./joplin/README.md).
+
+### Home Assistant
+
+See [here](./homeassistant/README.md).
+
+### Immich
+
+See [here](./immich/README.md).
+
+### Vaultwarden
+
+See [here](./vaultwarden/README.md).
+
+### Paperless Ngx
+
+See [here](./paperless/README.md).
 
 ## Customization
 
@@ -357,30 +513,29 @@ then appending it to the `COMPOSE_FILE` environment variable: `COMPOSE_FILE=dock
 For example, use a [different VPN provider](https://github.com/bubuntux/nordvpn):
 
 ```yml
-version: '3.9'
-
 services:
   vpn:
     image: ghcr.io/bubuntux/nordvpn
     cap_add:
-      - NET_ADMIN               # Required
-      - NET_RAW                 # Required
-    environment:                # Review https://github.com/bubuntux/nordvpn#environment-variables
-      - USER=user@email.com     # Required
-      - "PASS=pas$word"         # Required
+      - NET_ADMIN # Required
+      - NET_RAW # Required
+    environment: # Review https://github.com/bubuntux/nordvpn#environment-variables
+      - USER=user@email.com # Required
+      - "PASS=pas$word" # Required
       - CONNECT=United_States
       - TECHNOLOGY=NordLynx
-      - NETWORK=192.168.1.0/24  # So it can be accessed within the local network
+      - NETWORK=192.168.1.0/24 # So it can be accessed within the local network
 ```
 
-### Optional: Using the VPN for *arr apps
+### Optional: Using the VPN for \*arr apps
 
-If you want to use the VPN for Prowlarr and other *arr applications, add the following block to all the desired containers:
+If you want to use the VPN for Prowlarr and other \*arr applications, add the following block to all the desired containers:
+
 ```yml
-    network_mode: "service:vpn"
-    depends_on:
-      vpn:
-        condition: service_healthy
+network_mode: "service:vpn"
+depends_on:
+  vpn:
+    condition: service_healthy
 ```
 
 Change the healthcheck to mark the containers as unhealthy when internet connection is not working by appending a URL
@@ -397,6 +552,7 @@ Docker compose NAS can run on DSM 7.1, with a few extra steps.
 By default, ports 80 and 443 are used by Nginx but not actually used for anything useful. Free them by creating a new task
 in the Task Scheduler > Create > Triggered Task > User-defined script. Leave the Event as `Boot-up` and the `root` user,
 go to Task Settings and paste the following in User-defined script:
+
 ```
 sed -i -e 's/80/81/' -e 's/443/444/' /usr/syno/share/nginx/server.mustache /usr/syno/share/nginx/DSM.mustache /usr/syno/share/nginx/WWWService.mustache
 
@@ -407,23 +563,23 @@ synosystemctl restart nginx
 
 Since WireGuard is not part of DSM's kernel, an external package must be installed for the `vpn` container to run.
 
-For DSM 7.1, download and install the package corresponding to your NAS CPU architecture 
+For DSM 7.1, download and install the package corresponding to your NAS CPU architecture
 [from here](https://github.com/vegardit/synology-wireguard/releases).
 
-As specified in the [project's README](https://github.com/vegardit/synology-wireguard#installation), 
+As specified in the [project's README](https://github.com/vegardit/synology-wireguard#installation),
 the package must be run as `root` from the command line: `sudo /var/packages/WireGuard/scripts/start`
 
 ### Free Port 1900
 
-Jellyfin will fail to run by default since the port 1900 
-[is not free](https://lookanotherblog.com/resolve-port-1900-conflict-between-plex-and-synology/). 
-You may free it by going to  Control Panel > File Services > Advanced > SSTP > Untick `Enable Windows network discovery`.
+Jellyfin will fail to run by default since the port 1900
+[is not free](https://lookanotherblog.com/resolve-port-1900-conflict-between-plex-and-synology/).
+You may free it by going to Control Panel > File Services > Advanced > SSTP > Untick `Enable Windows network discovery`.
 
 ### User Permissions
 
 By default, the user and groups are set to `1000` as it is the default on Ubuntu and many other Linux distributions.
-However, that is not the case in Synology; the first user should have an ID of `1026` and a group of `100`. 
-You may check yours with `id`. 
+However, that is not the case in Synology; the first user should have an ID of `1026` and a group of `100`.
+You may check yours with `id`.
 Update the `USER_ID` and `GROUP_ID` in `.env` with your IDs.
 Not updating them may result in [permission issues](https://github.com/AdrienPoupa/docker-compose-nas/issues/10).
 
@@ -435,7 +591,7 @@ GROUP_ID=100
 ### Synology DHCP Server and Adguard Home Port Conflict
 
 If you are using the Synology DHCP Server package, it will use port 53 even if it does not need it. This is because
-it uses Dnsmasq to handle DHCP requests, but does not serve DNS queries. The port can be released by editing (as root) 
+it uses Dnsmasq to handle DHCP requests, but does not serve DNS queries. The port can be released by editing (as root)
 `/usr/local/lib/systemd/system/pkg-dhcpserver.service` and [adding -p 0](https://www.reddit.com/r/synology/comments/njwdao/comment/j2d23qr/?utm_source=reddit&utm_medium=web2x&context=3):
 `ExecStart=/var/packages/DhcpServer/target/dnsmasq-2.x/usr/bin/dnsmasq --user=DhcpServer --group=DhcpServer --cache-size=200 --conf-file=/etc/dhcpd/dhcpd.conf --dhcp-lease-max=2147483648 -p 0`
 Reboot the NAS and the port 53 will be free for Adguard.
@@ -446,7 +602,6 @@ If you want to use separate paths for torrents download and long term storage, t
 set your `docker-compose.override.yml` to:
 
 ```yml
-version: "3.9"
 services:
   sonarr:
     volumes:
@@ -462,7 +617,14 @@ services:
 
 Note you will lose the hard link ability, ie your files will be duplicated.
 
-In Sonarr and Radarr, go to `Settings` > `Importing` > Untick `Use Hardlinks instead of Copy`
+In Sonarr and Radarr, go to `Settings` > `Importing` > Untick `Use Hardlinks instead of Copy`.  
+To [setup permissions](https://trash-guides.info/File-and-Folder-Structure/How-to-set-up/Docker/#permissions) for the `DATA_ROOT` folder:
+
+```
+source .env
+sudo chown -R $USER:$USER $DATA_ROOT
+sudo chmod -R a=,a+rX,u+w,g+w $DATA_ROOT
+```
 
 ## NFS Share
 
@@ -500,7 +662,7 @@ network:
         - 192.168.0.10/24
       gateway4: 192.168.0.1
       nameservers:
-          addresses: [8.8.8.8, 8.8.4.4]
+        addresses: [8.8.8.8, 8.8.4.4]
   version: 2
 ```
 
@@ -512,6 +674,7 @@ If the server is installed on a laptop, you may want to disable the suspension w
 `sudo nano /etc/systemd/logind.conf`
 
 Replace:
+
 - `#HandleLidSwitch=suspend` by `HandleLidSwitch=ignore`
 - `#LidSwitchIgnoreInhibited=yes` by `LidSwitchIgnoreInhibited=no`
 

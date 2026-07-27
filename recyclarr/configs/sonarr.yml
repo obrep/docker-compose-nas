@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://schemas.recyclarr.dev/v8/config-schema.json
+sonarr:
+  main:
+    base_url: http://sonarr:8989/sonarr
+    api_key: !env_var SONARR_API_KEY
+
+    delete_old_custom_formats: true
+
+    quality_definition:
+      type: series
+
+    quality_profiles:
+      # WEB-1080p
+      - trash_id: 72dae194fc92bf828f32cde7744e51a1
+        reset_unmatched_scores:
+          enabled: true
+
+      # WEB-2160p
+      - trash_id: d1498e7d189fbe6c7110ceaabb7473e6
+        reset_unmatched_scores:
+          enabled: true
