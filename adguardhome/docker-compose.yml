@@ -17,21 +17,20 @@ services:
       - ./adguardhome/conf:/opt/adguardhome/conf
       - ./adguardhome/certs:/opt/adguardhome/certs
     labels:
-      # There is still something wrong when going through traefik - returning 404
-      # For now accessing through port
       - traefik.enable=true
-      - traefik.http.routers.adguardhome.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/adguardhome`))
-      - traefik.http.routers.adguardhome.tls=true     
+      - traefik.http.routers.adguardhome.rule=(Host(`${ADGUARD_HOSTNAME}`))
+      - traefik.http.routers.adguardhome.tls=true
       - traefik.http.routers.adguardhome.tls.certresolver=myresolver
       - traefik.http.services.adguardhome.loadbalancer.server.port=9080
+
       - homepage.group=Utilities
       - homepage.name=Adguard
       - homepage.icon=adguard-home.png
-      - homepage.href=/adguardhome
+      - homepage.href=https://${ADGUARD_HOSTNAME}
       - homepage.description=DNS Adblocker
       - homepage.weight=0
       - homepage.widget.type=adguard
-      - homepage.widget.url=https://${HOSTNAME}/adguardhome
+      - homepage.widget.url=https://${ADGUARD_HOSTNAME}
       - homepage.widget.username=${ADGUARD_USERNAME}
       - homepage.widget.password=${ADGUARD_PASSWORD}
 

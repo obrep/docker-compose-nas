@@ -1,6 +1,11 @@
 *.env
 .idea
 docker-compose.override.yml
+.ssh-pass
+*-pass
+*.pass
+.DS_Store
+@eaDir/
 /homepage/logs
 /homepage/*.yaml
 /homepage/*.css
