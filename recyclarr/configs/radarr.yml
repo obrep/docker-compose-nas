@@ -15,7 +15,12 @@ radarr:
         reset_unmatched_scores:
           enabled: true
 
-      # UHD Bluray + WEB (2160p / 4K)
+      # UHD Bluray + WEB (2160p / 4K only, no fallback - stays missing if no 4K release exists)
       - trash_id: 64fb5f9858489bdac2af690e27c8f42f
+        reset_unmatched_scores:
+          enabled: true
+
+      # Remux 2160p (Combined) - prefers 4K, falls back to 1080p, upgrades to 4K later. Default profile.
+      - trash_id: d1d310673359205736b4b84acd5ea8c8
         reset_unmatched_scores:
           enabled: true
