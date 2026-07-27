@@ -160,6 +160,8 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:libtorrentv1
     container_name: qbittorrent
+    profiles:
+      - qbittorrent
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -204,17 +206,21 @@ services:
       - homepage.widget.username=${QBITTORRENT_USERNAME}
       - homepage.widget.password=${QBITTORRENT_PASSWORD}
   vpn:
+    # Not currently in use (no VPN provider configured) - enable the "qbittorrent" profile
+    # and fill in the NordVPN variables in .env to bring qbittorrent + this VPN back online.
     # Changed to gluetun due to issues with nordvpn specific images
     image: qmcgaw/gluetun
     container_name: vpn
+    profiles:
+      - qbittorrent
     cap_add:
       - NET_ADMIN
     environment:
       - VPN_SERVICE_PROVIDER=nordvpn
       - VPN_TYPE=openvpn
-      - OPENVPN_USER=REDACTED_NORDVPN_USER
-      - OPENVPN_PASSWORD=REDACTED_NORDVPN_PASSWORD
-      - SERVER_COUNTRIES=Poland
+      - OPENVPN_USER=${NORDVPN_USER}
+      - OPENVPN_PASSWORD=${NORDVPN_PASSWORD}
+      - SERVER_COUNTRIES=${NORDVPN_SERVER_COUNTRIES:-Poland}
     ports:
       - 8888:8888/tcp # HTTP proxy
       - 8080:8080 #qbit
