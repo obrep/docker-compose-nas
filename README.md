@@ -453,6 +453,12 @@ Running DHCP in AdGuard Home makes it learn each device's hostname from its DHCP
 statistics show device names instead of IPs. This is needed when the router's DNS cannot answer reverse (PTR)
 lookups for its DHCP clients (e.g. TP-Link Archer routers), which rules out *Private reverse DNS servers*.
 
+> [!WARNING]
+> Not usable with an isolated router guest network. On consumer routers like the TP-Link Archer AX10 the guest
+> Wi-Fi has no DHCP of its own: it uses the router's. With the router's DHCP off and guests blocked from the local
+> network, guest devices never reach AdGuard's DHCP server and cannot get an address. This setup keeps the router
+> as DHCP server for that reason, so AdGuard shows real client IPs but not device names.
+
 1. **Give the NAS a static IP.** It must not depend on its own DHCP server: at boot the network comes up before
    Docker. In DSM: Control Panel > Network > Network Interface > select each LAN > Edit > IPv4 >
    *Use manual configuration*, keep the current IP, set the router as gateway and an external DNS (e.g. `1.1.1.1`).
