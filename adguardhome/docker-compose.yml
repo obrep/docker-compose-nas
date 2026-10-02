@@ -5,13 +5,10 @@ services:
     image: adguard/adguardhome
     container_name: adguardhome
     restart: always
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      # Removed port 68 as DHCP won't be used and it clashes with synology DHCP (which gives issues after uninstall)
-      # DNS over TLS
-      - "853:853/tcp"
-      - 9080:9080
+    # Host networking so AdGuard sees real client IPs (bridge NAT shows every client as the
+    # Docker gateway) and can run the DHCP server. Binds directly on the host:
+    # 53 (DNS), 853 (DNS over TLS), 9080 (web UI, proxied by Traefik), 67/udp (DHCP).
+    network_mode: host
     volumes:
       - ./adguardhome/work:/opt/adguardhome/work
       - ./adguardhome/conf:/opt/adguardhome/conf

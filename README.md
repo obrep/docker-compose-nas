@@ -434,26 +434,49 @@ In Settings > Encryption Settings, set the certificates path to `/opt/adguardhom
 and the private key to `/opt/adguardhome/certs/private/<YOUR_HOSTNAME>.key`, those files are created by Traefik cert dumper
 from the ACME certificates Traefik generates in JSON.
 
+#### Host Networking
+
+AdGuard Home runs with `network_mode: host`. On a Docker bridge network every DNS query is NATed, so the query log
+shows all clients as the bridge gateway (e.g. `172.20.0.1`). Host networking gives AdGuard the real client IPs and
+lets it run the DHCP server without a relay.
+
+Requirements on the host:
+
+- Ports 53 (DNS), 853 (DNS over TLS), 9080 (web UI) and 67/udp (DHCP) must be free. On Synology, see
+  [Synology DHCP Server and Adguard Home Port Conflict](#synology-dhcp-server-and-adguard-home-port-conflict).
+- If the host firewall is enabled, allow those ports: Docker port publishing no longer opens them.
+- Traefik reaches the web UI through `host.docker.internal` (mapped to `172.17.0.1` in the Traefik service).
+
 #### DHCP
 
-If you want to use the AdGuard Home DHCP server, for example because your router does not allow changing its DNS server,
-you will need to select the `eth0` DHCP interface matching `10.0.0.10`, then specify the
-Gateway IP to match your router address (`192.168.0.1` for example) and set a range of IP addresses assigned to local
-devices.
+Running DHCP in AdGuard Home makes it learn each device's hostname from its DHCP request, so the query log and
+statistics show device names instead of IPs. This is needed when the router's DNS cannot answer reverse (PTR)
+lookups for its DHCP clients (e.g. TP-Link Archer routers), which rules out *Private reverse DNS servers*.
 
-In `adguardhome/docker-compose.yml`, set the network interface `dhcp-relay` should listen to. By default, it is set to
-`enp2s0`, but you may need to change it to your host's network interface, verify it with `ip a`.
+1. **Give the NAS a static IP.** It must not depend on its own DHCP server: at boot the network comes up before
+   Docker. In DSM: Control Panel > Network > Network Interface > select each LAN > Edit > IPv4 >
+   *Use manual configuration*, keep the current IP, set the router as gateway and an external DNS (e.g. `1.1.1.1`).
+2. **Copy the router's DHCP reservations** into AdGuard as static leases (Settings > DHCP settings > Static leases,
+   or the API below). Hostnames must be valid DNS labels (lowercase letters, digits, `-`) and unique.
+   Skip the NAS's own addresses.
+3. **Configure the server** in Settings > DHCP settings: interface (the one holding the NAS IP, e.g. `ovs_eth0` on
+   Synology with Open vSwitch), gateway = router IP, subnet mask, range (exclude the NAS IPs), lease duration
+   (e.g. 86400s). AdGuard advertises its own IP as the DNS server.
+4. **Switch over:** disable DHCP on the router, then immediately enable it in AdGuard. Never run both at once.
+   Clients move over as their router leases expire; reconnecting a device moves it right away.
 
-In the configuration (`adguardhome/conf/AdGuardHome.yaml`), set the DHCP options 6th key to your NAS internal IP address:
+Rolling back: disable DHCP in AdGuard and re-enable it on the router (keep the router's reservations as they are).
 
-```yml
-dhcp:
-  dhcpv4:
-    options:
-      - 6 ips 192.168.0.10,192.168.0.10
+Static leases can be added through the API, with the AdGuard credentials from `.env`:
+
+```bash
+env_get() { grep "^$1=" .env | cut -d= -f2-; }
+curl -u "$(env_get ADGUARD_USERNAME):$(env_get ADGUARD_PASSWORD)" -H 'Content-Type: application/json' \
+  -d '{"mac":"aa:bb:cc:dd:ee:ff","ip":"192.168.1.50","hostname":"living-room-tv"}' \
+  http://localhost:9080/control/dhcp/add_static_lease
 ```
 
-Enable DHCP Relay by setting `COMPOSE_PROFILES=adguardhome-dhcp`.
+Static leases and DHCP settings live in `adguardhome/conf/AdGuardHome.yaml`, which is not tracked in git.
 
 #### Expose DNS Server with Tailscale
 
