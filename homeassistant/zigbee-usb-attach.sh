@@ -17,6 +17,11 @@ done
 
 qmp() { $V qemu-monitor-command $D "$1"; }
 
+# Stick not enumerated on the NAS (e.g. after repeated error -71 the kernel gives up on the port
+# until it is replugged) -> nothing to attach
+grep -qx ea60 $(grep -lx 10c4 /sys/bus/usb/devices/*/idVendor 2>/dev/null | sed 's/idVendor$/idProduct/') /dev/null 2>/dev/null || {
+  echo "Sonoff Zigbee stick not found on the NAS USB bus, replug it"; exit 0; }
+
 # libvirt's devices cgroup only lets QEMU open the USB device node the stick had at VM start;
 # allow all USB device nodes (major 189) so QEMU can reopen the stick at any new address
 CG=$(grep devices /proc/$(cat /run/libvirt/qemu/$D.pid)/cgroup | cut -d: -f3)
@@ -34,4 +39,4 @@ qmp '{"execute":"qom-list","arguments":{"path":"/machine/peripheral"}}' | grep -
 qmp '{"execute":"qom-list","arguments":{"path":"/machine/peripheral"}}' | grep -q '"hostdev0"' && {
   qmp '{"execute":"device_del","arguments":{"id":"hostdev0"}}' >/dev/null; sleep 3; }
 qmp '{"execute":"device_add","arguments":{"driver":"usb-host","id":"zigbee0","bus":"usb1.0","vendorid":4292,"productid":60000}}'
-logger -t zigbee-usb-attach "attached Sonoff Zigbee stick to HA VM by vendor/product ID"
+echo "Attached Sonoff Zigbee stick to HA VM by vendor/product ID"

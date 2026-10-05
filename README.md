@@ -652,8 +652,12 @@ Do not change the VM's USB device in VMM, as it would conflict with the stick at
 
 Check that it worked with
 `sudo /var/packages/Virtualization/target/usr/local/bin/virsh qemu-monitor-command 4bcd66c3-0581-4388-85aa-f471e8e5953e --hmp "info usb"`
-(`zigbee0` should show `Sonoff Zigbee 3.0 USB Dongle Plus`, not `USB Host Device`) and see when it ran with
-`grep zigbee-usb-attach /var/log/messages`.
+(`zigbee0` should show `Sonoff Zigbee 3.0 USB Dongle Plus`, not `USB Host Device`). Tick "Save output results" in
+the tasks' settings to see what the script did under Action > View Result.
+
+If the stick keeps failing with `error -71`, the kernel eventually stops retrying the port
+(`dmesg` shows `unable to enumerate USB device` and `Stop power cycle handling for port 1`). The script cannot fix
+that: physically replug the stick and the 5-minute task attaches it again.
 
 ## Use Separate Paths for Torrents and Storage
 
