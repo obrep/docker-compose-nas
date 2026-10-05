@@ -55,6 +55,7 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
     - [Free Port 1900](#free-port-1900)
     - [User Permissions](#user-permissions)
     - [Synology DHCP Server and Adguard Home Port Conflict](#synology-dhcp-server-and-adguard-home-port-conflict)
+    - [Home Assistant VM: Zigbee USB Passthrough](#home-assistant-vm-zigbee-usb-passthrough)
   - [Use Separate Paths for Torrents and Storage](#use-separate-paths-for-torrents-and-storage)
   - [NFS Share](#nfs-share)
   - [Static IP](#static-ip)
@@ -624,6 +625,35 @@ it uses Dnsmasq to handle DHCP requests, but does not serve DNS queries. The por
 `/usr/local/lib/systemd/system/pkg-dhcpserver.service` and [adding -p 0](https://www.reddit.com/r/synology/comments/njwdao/comment/j2d23qr/?utm_source=reddit&utm_medium=web2x&context=3):
 `ExecStart=/var/packages/DhcpServer/target/dnsmasq-2.x/usr/bin/dnsmasq --user=DhcpServer --group=DhcpServer --cache-size=200 --conf-file=/etc/dhcpd/dhcpd.conf --dhcp-lease-max=2147483648 -p 0`
 Reboot the NAS and the port 53 will be free for Adguard.
+
+### Home Assistant VM: Zigbee USB Passthrough
+
+Home Assistant OS runs as a VM in Virtual Machine Manager, with the Sonoff Zigbee 3.0 USB Dongle Plus (`10c4:ea60`)
+passed through for ZHA. VMM pins the stick by USB bus/address, and the stick gets a new address every time it
+re-enumerates (it drops out regularly with `error -71` in `dmesg`). After that, VMM silently removes it from the
+running VM and libvirt's devices cgroup blocks QEMU from opening the new address. ZHA then fails with
+`No such file or directory: /dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_...` and all Zigbee
+devices go `unavailable`. Rebooting Home Assistant from inside the VM does not help.
+
+[`homeassistant/zigbee-usb-attach.sh`](homeassistant/zigbee-usb-attach.sh) fixes this on the running VM, without a restart:
+it allows QEMU to open any USB device node, and re-attaches the stick by vendor/product ID so QEMU follows it to
+any new address. It is idempotent and does nothing when the stick is already attached.
+
+Create two tasks in Task Scheduler, both as the `root` user with a User-defined script:
+
+1. Create > Triggered Task, Event `Boot-up`:
+   `sh /volume1/scripts/docker-compose-nas/homeassistant/zigbee-usb-attach.sh --boot`
+2. Create > Scheduled Task, Daily, every 5 minutes from 00:00 to 23:55:
+   `sh /volume1/scripts/docker-compose-nas/homeassistant/zigbee-usb-attach.sh`
+
+The first one re-applies the fix after a NAS reboot or VM restart, the second one catches the stick re-enumerating.
+After the first run, reload ZHA in Settings > Devices & services if it does not reconnect by itself.
+Do not change the VM's USB device in VMM, as it would conflict with the stick attached by the script.
+
+Check that it worked with
+`sudo /var/packages/Virtualization/target/usr/local/bin/virsh qemu-monitor-command 4bcd66c3-0581-4388-85aa-f471e8e5953e --hmp "info usb"`
+(`zigbee0` should show `Sonoff Zigbee 3.0 USB Dongle Plus`, not `USB Host Device`) and see when it ran with
+`grep zigbee-usb-attach /var/log/messages`.
 
 ## Use Separate Paths for Torrents and Storage
 
