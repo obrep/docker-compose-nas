@@ -374,13 +374,16 @@ Setup:
    ```
 2. Generate an auth key (Settings > Keys): one-off, pre-approved, tagged `tag:nas`, short expiry.
    Put it in `.env` as `TAILSCALE_AUTHKEY`. It is only used on first login; the node state lives in `./tailscale/state`.
-3. `docker-compose up -d tailscale`, then in the admin console approve the subnet route and disable key expiry for the NAS.
+3. `mkdir -p tailscale/state && chmod 700 tailscale/state` (Synology's Docker does not create bind mount paths),
+   `docker-compose up -d tailscale`, then in the admin console approve the subnet route and disable key expiry for the NAS.
 4. Homepage widget: create an API access token (Settings > Keys, expires after at most 90 days) as `TAILSCALE_API_KEY`
    and set `TAILSCALE_DEVICE_ID` to the NAS node ID (Machines > jackfruit > ID, or
    `docker exec tailscale tailscale status --json | jq -r .Self.ID`), then `docker-compose up -d tailscale` again.
 5. Recommended: enable [Tailnet Lock](https://tailscale.com/kb/1226/tailnet-lock) and 2FA on the login provider.
 
-Client logs are not sent to Tailscale (`TS_NO_LOGS_NO_SUPPORT`). The NAS's own DNS is not changed (`TS_ACCEPT_DNS=false`).
+Client logs are not sent to Tailscale (`TS_NO_LOGS_NO_SUPPORT`).
+On Synology the log shows `failed to add connmark rules` (no `connmark` kernel module); this is harmless as long as
+`rp_filter` is off (`cat /proc/sys/net/ipv4/conf/all/rp_filter` prints `0`, the DSM default). The NAS's own DNS is not changed (`TS_ACCEPT_DNS=false`).
 To use the NAS as an exit node, set `TAILSCALE_EXTRA_ARGS=--advertise-exit-node` and approve it in the admin console.
 
 When away on a network that also uses `192.168.1.0/24`, the local network wins over the subnet route;
