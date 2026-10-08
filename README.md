@@ -355,24 +355,33 @@ Certificate generation can be disabled by setting `DNS_CHALLENGE` to `false`.
 
 ### Accessing from the outside with Tailscale
 
-If we want to make it reachable from outside the network without opening ports or exposing it to the internet, I found
-[Tailscale](https://tailscale.com) to be a great solution: create a network, run the client on both the NAS and the device
-you are connecting from, and they will see each other.
+[Tailscale](https://tailscale.com) makes the NAS reachable from outside the network without opening ports
+or exposing it to the internet. It runs as a container (`tailscale/docker-compose.yml`), enabled by appending
+`tailscale/docker-compose.yml` to `COMPOSE_FILE`.
 
-In this case, the A record should point to the IP Tailscale assigned to the NAS, eg `100.xxx.xxx.xxx`:
+The NAS advertises its own LAN IP as a [subnet route](https://tailscale.com/kb/1019/subnets)
+(`TAILSCALE_ROUTES`, default `192.168.1.101/32`). Because `nas.domain.com` already resolves to that private IP,
+every service works from any tailnet device with no DNS changes, at home or away. Only the NAS is shared,
+not the rest of the LAN (router, IoT devices, ...).
 
-```
-nas.domain.com.	1	IN	A	100.xxx.xxx.xxx
-```
+Setup:
 
-See [here](https://tailscale.com/kb/installation) for installation instructions.
+1. In the Tailscale admin console, add a `tag:nas` tag owner to the access controls and restrict who can reach it, e.g.:
+   ```json
+   "tagOwners": { "tag:nas": ["autogroup:admin"] },
+   "grants":    [{ "src": ["autogroup:member"], "dst": ["tag:nas"], "ip": ["*"] },
+                 { "src": ["autogroup:member"], "dst": ["192.168.1.101/32"], "ip": ["*"] }]
+   ```
+2. Generate an auth key (Settings > Keys): one-off, pre-approved, tagged `tag:nas`, short expiry.
+   Put it in `.env` as `TAILSCALE_AUTHKEY`. It is only used on first login; the node state lives in `./tailscale/state`.
+3. `docker-compose up -d tailscale`, then in the admin console approve the subnet route and disable key expiry for the NAS.
+4. Recommended: enable [Tailnet Lock](https://tailscale.com/kb/1226/tailnet-lock) and 2FA on the login provider.
 
-However, this means you will always need to be connected to Tailscale to access your NAS, even locally.
-This can be remedied by overriding the DNS entry for the NAS domain like `192.168.0.10 nas.domain.com`
-in your local DNS resolver such as Pi-Hole.
+Client logs are not sent to Tailscale (`TS_NO_LOGS_NO_SUPPORT`). The NAS's own DNS is not changed (`TS_ACCEPT_DNS=false`).
+To use the NAS as an exit node, set `TAILSCALE_EXTRA_ARGS=--advertise-exit-node` and approve it in the admin console.
 
-This way, when connected to the local network, the NAS is accessible directly from the private IP,
-and from the outside you need to connect to Tailscale first, then the NAS domain will be accessible.
+When away on a network that also uses `192.168.1.0/24`, the local network wins over the subnet route;
+use the NAS's Tailscale name (`jackfruit`) or `100.x` IP instead.
 
 ## Optional Services
 

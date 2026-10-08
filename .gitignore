@@ -33,3 +33,4 @@ docker-compose.override.yml
 !/recyclarr/configs
 !/cleanuparr/blacklist.json
 !/cleanuparr/logs/.gitkeep
+/tailscale/state
