@@ -28,5 +28,23 @@ services:
       - TS_EXTRA_ARGS=${TAILSCALE_EXTRA_ARGS:-}
       # Opt out of sending client logs to Tailscale.
       - TS_NO_LOGS_NO_SUPPORT=true
+      # Local /healthz endpoint for the healthcheck below (autoheal restarts it if unhealthy).
+      - TS_ENABLE_HEALTH_CHECK=true
+      - TS_LOCAL_ADDR_PORT=127.0.0.1:9002
     volumes:
       - ./tailscale/state:/var/lib/tailscale
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9002/healthz"]
+      interval: 1m
+      retries: 5
+      start_period: 30s
+    labels:
+      - homepage.group=Utilities
+      - homepage.name=Tailscale
+      - homepage.icon=tailscale.png
+      - homepage.href=https://login.tailscale.com/admin/machines
+      - homepage.description=Remote access
+      - homepage.weight=1
+      - homepage.widget.type=tailscale
+      - homepage.widget.deviceid=${TAILSCALE_DEVICE_ID}
+      - homepage.widget.key=${TAILSCALE_API_KEY}
