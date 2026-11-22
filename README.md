@@ -26,7 +26,8 @@ I am running it in Ubuntu Server 22.04; I also tested this setup on a [Synology 
   - [Prowlarr](#prowlarr)
   - [Recyclarr](#recyclarr)
   - [Cross-Seed](#cross-seed)
-  - [qBittorrent](#qbittorrent)
+  - [DTS Converter](#dts-converter)
+- [qBittorrent](#qbittorrent)
   - [Jellyfin](#jellyfin)
   - [Homepage](#homepage)
   - [Seerr](#seerr)
@@ -146,6 +147,9 @@ If you want to show Jellyfin information in the homepage, create it in Jellyfin 
 | `SEERR_API_KEY`                | Seer API key to show information in the homepage                                                                                                                                                  |                                                  |
 | `SABNZBD_API_KEY`              | Sabnzbd API key to show information in the homepage                                                                                                                                                    |                                                  |
 | `AUTOBRR_API_KEY`              | Autobrr API key to show information in the homepage                                                                                                                                                    |                                                  |
+| `PLEX_URL`                     | Plex server URL used by `dts-converter` to refresh the library after a conversion, e.g. `http://192.168.1.101:32400`                                                                                     |                                                  |
+| `PLEX_TOKEN`                   | Plex token used by `dts-converter` (`PlexOnlineToken` in Plex's `Preferences.xml`)                                                                                                                   |                                                  |
+| `DTS_CONVERT_SINCE`            | `dts-converter` only touches Radarr files imported on/after this date (ISO, e.g. `2026-11-22`)                                                                                                          |                                                  |
 | `RECYCLARR_CRON_SCHEDULE`      | Standard cron syntax for how often Recyclarr syncs TRaSH Guides profiles to Sonarr/Radarr                                                                                                              | `@daily`                                         |
 | `HOMEPAGE_VAR_TITLE`           | Title of the homepage                                                                                                                                                                                  | `Docker-Compose NAS`                             |
 | `HOMEPAGE_VAR_SEARCH_PROVIDER` | Homepage search provider, [see list here](https://gethomepage.dev/en/widgets/search/)                                                                                                                  | `google`                                         |
@@ -237,6 +241,42 @@ To trigger a sync manually instead of waiting for the schedule: `docker compose 
 See the [Quick Setup Templates](https://recyclarr.dev/guide/guide-configs) page for other available profiles (anime,
 French, German, remux, ...), and the [Configuration Reference](https://recyclarr.dev/reference/configuration) to
 customize scores or add optional custom formats.
+
+## DTS Converter
+
+LG TVs (and many other TVs) can't decode DTS audio. When the Plex app sends the DTS track to the TV anyway, the movie
+plays with no sound. Embedded subtitles can also make Plex burn them into the picture, which means re-encoding the
+whole 4K video, and the NAS can't keep up with that.
+
+`dts-converter` (in `dts-converter/`) polls Radarr every 5 minutes. For each movie file imported on or after
+`DTS_CONVERT_SINCE`, it does two things:
+
+- **Audio:** every DTS track (DTS, DTS-ES, DTS-HD HRA, DTS-HD MA, DTS:X) is re-encoded to E-AC-3 (DD+), at 1024 kbps for
+  5.1 and 256 kbps for stereo, downmixing 7.1 to 5.1. Video, chapters and all other tracks are copied untouched. The
+  output is written to `${DATA_ROOT}/.dts-converter/`, checked (same stream counts, same duration, no DTS left), and only
+  then moved over the original.
+- **Subtitles:** text subtitles (SRT/ASS/WebVTT) are extracted next to the movie as `Movie.<lang>[.forced|.sdh].srt`,
+  so the TV draws them itself instead of Plex burning them in. Image subtitles (PGS, from Blu-ray discs) are always
+  burned in, so avoid picking them on 4K files.
+
+After a change, it asks Radarr to rescan the movie and Plex to refresh the folder. Results and failures are kept in
+`${DATA_ROOT}/.dts-converter/state.json`; a failing file is retried once, then skipped. A 34 GB 4K Remux takes about
+7 minutes. The bottleneck is disk speed, so time scales with file size.
+
+Movie scores are unaffected: Radarr's audio custom formats match on the release name, not the file's actual tracks,
+so a converted file keeps its score and doesn't trigger an upgrade loop.
+
+Useful commands:
+
+```bash
+docker-compose logs -f dts-converter
+# convert/extract a single file by hand (path as seen inside the container, under /data)
+docker-compose run --rm dts-converter once "/data/movies/Movie (2026)/Movie (2026) Remux-2160p.mkv"
+# see what would be converted without touching anything
+docker-compose run --rm -e DRY_RUN=1 dts-converter
+```
+
+Set `DTS_CONVERT_SINCE` to an earlier date to also convert older files in your library.
 
 ## qBittorrent
 
